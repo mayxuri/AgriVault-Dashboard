@@ -10,17 +10,35 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.agrivault.data.DummyData
+import androidx.work.*
 import com.example.agrivault.data.TransactionEntity
+import com.example.agrivault.sync.SyncWorker
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        scheduleSyncWorker()
         setContent {
             AgriVaultUI()
         }
+    }
+
+    private fun scheduleSyncWorker() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.UNMETERED) // WiFi only — no mobile data sync
+            .build()
+
+        val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(1, TimeUnit.HOURS)
+            .setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "agrivault_sync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            syncRequest
+        )
     }
 }
 
@@ -59,25 +77,21 @@ fun AgriVaultUI() {
         Spacer(modifier = Modifier.height(8.dp))
 
         Button(onClick = {
-            // Add to list (NO validation yet → intentional bug)
             transactions.add(
                 TransactionEntity(
-                    id = transactions.size, // ❌ bug (intentional)
+                    id = transactions.size,
                     title = title,
                     amount = amount.toDoubleOrNull() ?: 0.0,
                     timestamp = System.currentTimeMillis()
                 )
             )
-
-            // ❌ not clearing input (intentional bug)
-
         }) {
             Text("Log Expense")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text("Total Balance: ₹${transactions.sumOf { it.amount }}") // ❌ wrong label
+        Text("Total Balance: ₹${transactions.sumOf { it.amount }}")
 
         Spacer(modifier = Modifier.height(8.dp))
 
